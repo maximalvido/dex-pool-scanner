@@ -1,0 +1,35 @@
+{
+  "name": "dex-pool-scanner",
+  "version": "1.0.0",
+  "description": "Multi-protocol DEX liquidity pool scanner and price tracker for Base network",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "example": "tsx examples/basic-discovery.ts"
+  },
+  "keywords": [
+    "defi",
+    "dex",
+    "uniswap",
+    "liquidity-pools",
+    "blockchain",
+    "ethereum",
+    "base"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "viem": "^2.43.2",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.0.0"
+  }
+}

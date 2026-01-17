@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+pools-cache.json
+.env
+.DS_Store
+
+# User configuration (copy from protocols.json.example)
+protocols.json
+tokens.json

@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["protocols", "discovery"],
+  "properties": {
+    "protocols": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "factory", "subgraphId", "enabled"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name of the protocol"
+          },
+          "factory": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$",
+            "description": "Factory contract address (checksummed hex)"
+          },
+          "subgraphId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The Graph decentralized network subgraph ID"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this protocol is enabled for discovery"
+          },
+          "poolType": {
+            "type": "string",
+            "description": "Liquidity pool type (e.g., 'UniswapV3'). Defaults to 'UniswapV3' if not specified"
+          }
+        }
+      }
+    },
+    "discovery": {
+      "type": "object",
+      "required": ["minLiquidityUSD", "cacheRefreshMinutes", "maxPoolsPerProtocol"],
+      "properties": {
+        "minLiquidityUSD": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Minimum liquidity in USD to include a pool"
+        },
+        "cacheRefreshMinutes": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Cache refresh interval in minutes"
+        },
+        "maxPoolsPerProtocol": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Maximum number of pools to fetch per protocol"
+        }
+      }
+    }
+  }
+}

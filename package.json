@@ -1,11 +1,17 @@
 {
   "name": "dex-pool-scanner",
   "version": "1.0.0",
-  "description": "Multi-protocol DEX liquidity pool scanner and price tracker for Base network",
+  "description": "Multi-protocol DEX liquidity pool scanner and price tracker for EVM networks.",
   "main": "dist/index.js",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/add-js-extensions.js",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
     "example": "tsx examples/basic-discovery.ts"

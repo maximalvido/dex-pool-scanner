@@ -1,14 +1,32 @@
 # DEX Pool Scanner
 
-Multi-protocol DEX liquidity pool scanner and real-time price tracker for EVM networks. Discovers pools from multiple DEX protocols using [TheGraph](https://thegraph.com/explorer) and monitors price changes via WebSocket.
+[![npm version](https://img.shields.io/npm/v/dex-pool-scanner.svg)](https://www.npmjs.com/package/dex-pool-scanner)
+[![npm downloads](https://img.shields.io/npm/dm/dex-pool-scanner.svg)](https://www.npmjs.com/package/dex-pool-scanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
-Supported Protocols:
-- UniswapV3
+Multi-protocol DEX liquidity pool scanner and real-time price tracker for EVM networks. Discovers pools from multiple DEX protocols using [The Graph](https://thegraph.com/explorer) and monitors price changes via WebSocket.
+
+## Supported Protocols
+
+- **UniswapV3** - Full support for pool discovery and real-time price tracking
 
 ## Installation
 
 ```bash
 npm install dex-pool-scanner
+```
+
+Or using yarn:
+
+```bash
+yarn add dex-pool-scanner
+```
+
+Or using pnpm:
+
+```bash
+pnpm add dex-pool-scanner
 ```
 
 ## Quick Start
@@ -162,6 +180,10 @@ scanner.stop();  // Stop monitoring
 - [Configuration](./docs/configuration.md) - Configuration guide
 - [Troubleshooting](./docs/troubleshooting.md) - Common issues and solutions
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 ## License
 
-MIT
+MIT © [Maximiliano Malvido](https://github.com/maximalvido)

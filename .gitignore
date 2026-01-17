@@ -4,6 +4,7 @@ dist/
 pools-cache.json
 .env
 .DS_Store
+.npmrc
 
 # User configuration (copy from protocols.json.example)
 protocols.json

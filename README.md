@@ -55,6 +55,7 @@ pnpm add dex-pool-scanner
 2. Set environment variables:
 
 ```bash
+# .env
 THE_GRAPH_API_KEY=your_api_key
 RPC_URL=wss://your-rpc-url
 ENABLE_LOG=true  # Optional: enable logging

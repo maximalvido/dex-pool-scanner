@@ -25,8 +25,16 @@
     "ethereum",
     "base"
   ],
-  "author": "",
+  "author": "Maximiliano Malvido",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maximalvido/dex-pool-scanner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maximalvido/dex-pool-scanner/issues"
+  },
+  "homepage": "https://github.com/maximalvido/dex-pool-scanner#readme",
   "dependencies": {
     "dotenv": "^17.2.3",
     "viem": "^2.43.2",

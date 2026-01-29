@@ -8,8 +8,9 @@
 Multi-protocol DEX liquidity pool scanner and real-time price tracker for EVM networks. Discovers pools from multiple DEX protocols using [The Graph](https://thegraph.com/explorer) and monitors price changes via WebSocket.
 
 ## Supported Protocols
-
-- **UniswapV3** - Full support for pool discovery and real-time price tracking
+Full support for pool discovery and real-time price tracking:
+- **UniswapV3**
+- **UniswapV2**
 
 ## Installation
 

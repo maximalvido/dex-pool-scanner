@@ -1,11 +1,11 @@
 import { CachedPool, PoolPrice, Scanner } from '../src/index';
 
 const onPriceChange = (pool: CachedPool, newPrice: PoolPrice, oldPrice: PoolPrice | null) => {
-  const change = oldPrice 
+  const change = oldPrice
     ? ((newPrice.token0Price - oldPrice.token0Price) / oldPrice.token0Price * 100).toFixed(4)
     : 'N/A';
-  
-  console.log(`\nPrice Update: ${pool.token0Symbol}/${pool.token1Symbol}`);
+
+  console.log(`\nPrice Update: ${pool.token0Symbol}/${pool.token1Symbol} [${pool.protocol}]`);
   console.log(`   Pool: ${pool.address}`);
   console.log(`   ${pool.token0Symbol} price: ${newPrice.token0Price.toFixed(6)} ${pool.token1Symbol}`);
   console.log(`   ${pool.token1Symbol} price: ${newPrice.token1Price.toFixed(6)} ${pool.token0Symbol}`);
@@ -17,7 +17,7 @@ const onPriceChange = (pool: CachedPool, newPrice: PoolPrice, oldPrice: PoolPric
 async function main() {
   const scanner = new Scanner(onPriceChange, './protocols.json');
 
-  await scanner.start({ 
+  await scanner.start({
     protocols: {
       'uniswap-v3': {
         name: 'Uniswap V3',
@@ -25,10 +25,17 @@ async function main() {
         subgraphId: '43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG',
         enabled: true,
         poolType: 'UniswapV3'
+      },
+      'sushiswap-v2': {
+        name: 'SushiSwap V2',
+        factory: '0x2f8818d1b0f3e3e295440c1c0cddf40aaa21fa87',
+        subgraphId: '7Tbc4o9M99Si1x7yenGXmsbHyMgUTPKJU1GjDdaXzXK3',
+        enabled: true,
+        poolType: 'UniswapV2'
       }
     },
     discovery: {
-      minLiquidityUSD: 10000,
+      minLiquidityUSD: 1, // Lower for testing
       cacheRefreshMinutes: 60,
       maxPoolsPerProtocol: 100
     },

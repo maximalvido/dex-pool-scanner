@@ -7,11 +7,12 @@ export interface ProtocolConfig {
   factory: string;
   subgraphId?: string;
   enabled: boolean;
+  poolType?: string;
 }
 
 function buildSubgraphUrl(protocolId: string): string {
   const apiKey = process.env.THE_GRAPH_API_KEY;
-  
+
   if (!apiKey) {
     logWarn(`THE_GRAPH_API_KEY not set. Please add it to your .env file.`);
     return '';
@@ -19,7 +20,7 @@ function buildSubgraphUrl(protocolId: string): string {
 
   const config = getConfig();
   const protocolConfig = config.protocols[protocolId];
-  
+
   if (!protocolConfig) {
     logWarn(`No protocol configuration found for "${protocolId}"`);
     return '';
@@ -37,7 +38,7 @@ function buildSubgraphUrl(protocolId: string): string {
 export function getProtocolConfig(protocolId: string): ProtocolConfig | undefined {
   const config = getConfig();
   const protocolConfig = config.protocols[protocolId];
-  
+
   if (!protocolConfig) {
     return undefined;
   }
@@ -46,7 +47,8 @@ export function getProtocolConfig(protocolId: string): ProtocolConfig | undefine
     name: protocolConfig.name,
     factory: protocolConfig.factory,
     subgraphId: protocolConfig.subgraphId,
-    enabled: protocolConfig.enabled
+    enabled: protocolConfig.enabled,
+    poolType: protocolConfig.poolType
   };
 }
 
@@ -76,15 +78,16 @@ export const DISCOVERY_CONFIG = {
 export function getAllProtocolConfigs(): Record<string, ProtocolConfig> {
   const config = getConfig();
   const result: Record<string, ProtocolConfig> = {};
-  
+
   for (const [protocolId, protocolConfig] of Object.entries(config.protocols)) {
     result[protocolId] = {
       name: protocolConfig.name,
       factory: protocolConfig.factory,
       subgraphId: protocolConfig.subgraphId,
-      enabled: protocolConfig.enabled
+      enabled: protocolConfig.enabled,
+      poolType: protocolConfig.poolType
     };
   }
-  
+
   return result;
 }

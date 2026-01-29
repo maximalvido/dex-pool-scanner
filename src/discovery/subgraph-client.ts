@@ -3,8 +3,8 @@ import { getProtocolConfig, getEnabledProtocols, DISCOVERY_CONFIG, getSubgraphUr
 import { areBothTokensWhitelisted, loadTokenWhitelist } from '../config/token-whitelist';
 import { log, logError } from '../utils/logger';
 
-const POOLS_QUERY = `
-  query GetTopPools($first: Int!, $minLiquidityUSD: BigDecimal!) {
+const V3_POOLS_QUERY = `
+  query GetV3Pools($first: Int!, $minLiquidityUSD: BigDecimal!) {
     pools(
       first: $first
       orderBy: totalValueLockedUSD
@@ -12,16 +12,8 @@ const POOLS_QUERY = `
       where: { totalValueLockedUSD_gte: $minLiquidityUSD }
     ) {
       id
-      token0 {
-        id
-        symbol
-        decimals
-      }
-      token1 {
-        id
-        symbol
-        decimals
-      }
+      token0 { id symbol decimals }
+      token1 { id symbol decimals }
       feeTier
       totalValueLockedUSD
       volumeUSD
@@ -29,26 +21,37 @@ const POOLS_QUERY = `
   }
 `;
 
+const V2_PAIRS_QUERY = `
+  query GetV2Pairs($first: Int!, $minLiquidityUSD: BigDecimal!) {
+    pairs(
+      first: $first
+      orderBy: reserveUSD
+      orderDirection: desc
+      where: { reserveUSD_gte: $minLiquidityUSD }
+    ) {
+      id
+      token0 { id symbol decimals }
+      token1 { id symbol decimals }
+      reserveUSD
+      volumeUSD
+    }
+  }
+`;
+
 interface SubgraphPool {
   id: string;
-  token0: {
-    id: string;
-    symbol: string;
-    decimals: string;
-  };
-  token1: {
-    id: string;
-    symbol: string;
-    decimals: string;
-  };
-  feeTier: string;
-  totalValueLockedUSD: string;
+  token0: { id: string; symbol: string; decimals: string; };
+  token1: { id: string; symbol: string; decimals: string; };
+  feeTier?: string;
+  totalValueLockedUSD?: string;
+  reserveUSD?: string;
   volumeUSD: string;
 }
 
 interface GraphQLResponse {
   data?: {
     pools?: SubgraphPool[];
+    pairs?: SubgraphPool[];
   };
   errors?: Array<{ message: string }>;
 }
@@ -69,19 +72,19 @@ export async function fetchPoolsFromProtocol(protocolId: string): Promise<Cached
 
   log(`Fetching pools from ${config.name} subgraph...`);
 
+  const isV2 = config.poolType === 'UniswapV2';
+  const query = isV2 ? V2_PAIRS_QUERY : V3_POOLS_QUERY;
+
   try {
     const subgraphUrl = getSubgraphUrl(protocolId);
     const response = await fetch(subgraphUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: POOLS_QUERY,
+        query,
         variables: {
           first: DISCOVERY_CONFIG.maxPoolsPerProtocol,
-          minLiquidityUSD: DISCOVERY_CONFIG.minLiquidityUSD.toString() // BigDecimal expects string
+          minLiquidityUSD: DISCOVERY_CONFIG.minLiquidityUSD.toString()
         }
       })
     });
@@ -97,10 +100,16 @@ export async function fetchPoolsFromProtocol(protocolId: string): Promise<Cached
       return [];
     }
 
-    const pools: SubgraphPool[] = data.data?.pools || [];
+    const pools: SubgraphPool[] = isV2 ? (data.data?.pairs || []) : (data.data?.pools || []);
 
     const cachedPools: CachedPool[] = pools
-      .filter(pool => areBothTokensWhitelisted(pool.token0.id, pool.token1.id))
+      .filter(pool => {
+        const whitelisted = areBothTokensWhitelisted(pool.token0.id, pool.token1.id);
+        if (!whitelisted) {
+          // log(`  Filtered out ${pool.token0.symbol}/${pool.token1.symbol} (${pool.id})`);
+        }
+        return whitelisted;
+      })
       .map(pool => ({
         address: pool.id.toLowerCase(),
         protocol: protocolId,
@@ -110,8 +119,8 @@ export async function fetchPoolsFromProtocol(protocolId: string): Promise<Cached
         token1: pool.token1.id.toLowerCase(),
         token1Symbol: pool.token1.symbol,
         token1Decimals: parseInt(pool.token1.decimals),
-        fee: parseInt(pool.feeTier),
-        liquidityUSD: parseFloat(pool.totalValueLockedUSD),
+        fee: pool.feeTier ? parseInt(pool.feeTier) : 0,
+        liquidityUSD: parseFloat(pool.totalValueLockedUSD || pool.reserveUSD || '0'),
         volume24hUSD: parseFloat(pool.volumeUSD),
         lastSeen: new Date().toISOString()
       }));
@@ -127,7 +136,7 @@ export async function fetchPoolsFromProtocol(protocolId: string): Promise<Cached
 
 export async function fetchPoolsFromAllProtocols(): Promise<CachedPool[]> {
   await loadTokenWhitelist();
-  
+
   const protocolIds = getEnabledProtocols();
 
   log('---------------------------------------------------');

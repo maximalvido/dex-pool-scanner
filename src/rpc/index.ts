@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { createPublicClient, http, webSocket, PublicClient } from 'viem';
+import { base } from 'viem/chains';
 import { RPC } from './rpc';
 import { initialize, getConfig, ProtocolConfig, DiscoveryConfig } from '../config/config-loader';
 import { PoolDiscovery } from '../discovery/pool-discovery';
@@ -13,22 +15,6 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 const HEARTBEAT_INTERVAL = 60000;
 const CONNECTION_TIMEOUT = 5 * 60 * 1000;
 
-function calculatePriceFromSqrtPriceX96(
-  sqrtPriceX96: bigint,
-  token0Decimals: number,
-  token1Decimals: number
-): { token0Price: number; token1Price: number } {
-  const Q96 = 2n ** 96n;
-  const sqrtPrice = Number(sqrtPriceX96) / Number(Q96);
-  const price = sqrtPrice * sqrtPrice;
-  const decimalAdjustment = 10 ** (token1Decimals - token0Decimals);
-  const adjustedPrice = price * decimalAdjustment;
-  
-  return {
-    token0Price: adjustedPrice,
-    token1Price: 1 / adjustedPrice
-  };
-}
 
 export type PriceChangeCallback = (
   pool: CachedPool,
@@ -38,6 +24,7 @@ export type PriceChangeCallback = (
 
 class Scanner {
   private rpc: RPC | undefined;
+  private publicClient: PublicClient;
   private lastMessageTime = Date.now();
   private reconnectAttempts = 0;
   private isRateLimited = false;
@@ -49,7 +36,16 @@ class Scanner {
   constructor(
     private onPriceChange: PriceChangeCallback,
     private configPath: string = './protocols.json'
-  ) {}
+  ) {
+    if (!RPC_URL) {
+      throw new Error('RPC_URL environment variable is required');
+    }
+    const transport = RPC_URL.startsWith('wss://') ? webSocket(RPC_URL) : http(RPC_URL);
+    this.publicClient = createPublicClient({
+      chain: base,
+      transport
+    }) as PublicClient;
+  }
 
   private createRPCConnection() {
     if (!RPC_URL) {
@@ -97,7 +93,7 @@ class Scanner {
   private handleLogEvent(log: EthereumLog) {
     const poolAddress = log.address.toLowerCase();
     const pool = this.pools.find(p => p.address.toLowerCase() === poolAddress);
-    
+
     if (!pool) {
       return;
     }
@@ -109,12 +105,12 @@ class Scanner {
 
     try {
       const swapData = liquidityPool.parseSwapEventData(log);
-      
-      const { token0Price, token1Price } = calculatePriceFromSqrtPriceX96(
-        BigInt(swapData.sqrtPriceX96),
-        pool.token0Decimals,
-        pool.token1Decimals
-      );
+      const token0Price = typeof swapData.price === 'number' ? swapData.price : Number(swapData.price);
+      const token1Price = 1 / token0Price;
+
+      if (token0Price <= 0) {
+        return;
+      }
 
       const newPrice: PoolPrice = {
         poolAddress: pool.address,
@@ -138,14 +134,16 @@ class Scanner {
       const liquidityPool = this.liquidityPools.get(pool.address.toLowerCase());
       if (!liquidityPool) continue;
 
-      const swapEventSignature = liquidityPool.getSwapEventSignature();
-      
-      this.rpc.subscribeToLogs({
-        address: [pool.address],
-        topics: [swapEventSignature]
-      });
+      const eventSignatures = liquidityPool.getEventSignatures();
 
-      log(`[${new Date().toISOString()}] Subscribed to swaps for ${pool.token0Symbol}/${pool.token1Symbol} (${pool.address})`);
+      for (const sig of eventSignatures) {
+        this.rpc.subscribeToLogs({
+          address: [pool.address],
+          topics: [sig]
+        });
+      }
+
+      log(`[${new Date().toISOString()}] Subscribed to events for ${pool.token0Symbol}/${pool.token1Symbol} (${pool.address})`);
     }
   }
 
@@ -193,12 +191,12 @@ class Scanner {
   }
 
   // Main entry point: initializes config, discovers pools, and starts WebSocket monitoring
-  public async start({ 
+  public async start({
     clearCache = false,
     tokens,
     protocols,
     discovery
-  }: { 
+  }: {
     clearCache?: boolean;
     tokens?: Record<string, string>;
     protocols?: Record<string, ProtocolConfig>;
@@ -239,9 +237,14 @@ class Scanner {
       }
 
       const poolType = protocolConfig.poolType || 'UniswapV3';
-      
+
       try {
-        const liquidityPool = instantiateLiquidityPool(poolType, pool.address);
+        const liquidityPool = instantiateLiquidityPool(
+          poolType,
+          pool.address,
+          pool.token0Decimals,
+          pool.token1Decimals
+        );
         this.liquidityPools.set(pool.address.toLowerCase(), liquidityPool);
       } catch (error) {
         logError(`Failed to instantiate liquidity pool for ${pool.address}:`, error);
@@ -250,8 +253,60 @@ class Scanner {
 
     log(`Initialized ${this.liquidityPools.size} liquidity pool instances`);
 
+    // Fetch initial prices before starting subscriptions
+    await this.fetchInitialPrices();
+
     this.createRPCConnection();
     this.startHeartbeatMonitor();
+  }
+
+  private async fetchInitialPrices() {
+    log('Fetching initial prices using Multicall...');
+
+    const poolsToFetch = Array.from(this.liquidityPools.values());
+    if (poolsToFetch.length === 0) return;
+
+    const contracts = poolsToFetch.map(pool => pool.getInitialStateCall());
+
+    try {
+      const results = await this.publicClient.multicall({
+        contracts,
+        allowFailure: true
+      });
+
+      for (let i = 0; i < poolsToFetch.length; i++) {
+        const pool = poolsToFetch[i];
+        const result = results[i];
+
+        if (result.status === 'success') {
+          pool.applyInitialState(result.result);
+
+          const poolAddress = pool.getContractAddress().toLowerCase();
+          const cachedPool = this.pools.find(p => p.address.toLowerCase() === poolAddress);
+
+          if (cachedPool) {
+            const token0Price = pool.getCurrentPrice();
+            if (token0Price > 0) {
+              const price: PoolPrice = {
+                poolAddress: cachedPool.address,
+                token0Price,
+                token1Price: 1 / token0Price,
+                timestamp: Date.now()
+              };
+
+              this.currentPrices.set(poolAddress, price);
+              // Report initial price
+              this.onPriceChange(cachedPool, price, null);
+            }
+          }
+        } else {
+          logWarn(`Failed to fetch initial state for pool ${pool.getContractAddress()}`);
+        }
+      }
+      log('Initial prices fetched and applied.');
+    } catch (error) {
+      logError('Multicall failed:', error);
+    }
   }
 
   public stop() {
